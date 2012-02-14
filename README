@@ -1,0 +1,14 @@
+== Info ==
+Version: 0.4.0
+Documentation URI: http://www.keyground.com/docs
+Author: Keyground
+Author URI: http://www.keyground.com
+License: GPL2
+
+== Description ==
+Keyground SDK is a full featured sdk for Keyground Video Platform Api
+
+== Changelog ==
+
+= 0.4.0 =
+* Changed to full featured SDK
