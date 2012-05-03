@@ -1,7 +1,7 @@
 <?php
 /*
  * Api Version: 0.3.3
- * SDK Version: 0.4.0
+ * SDK Version: 0.4.1
  * 
  */
 
@@ -146,7 +146,7 @@ class KG_VideoList implements Iterator
 	public function getVideos()
 	{
 		
-		switch($this->filter['queryType']){
+		switch($this->params['queryType']){
 			case 'by_channel_id':
 				$xml = $this->adapter->sendRequest("getVideos",$this->params);
 				break;
@@ -186,7 +186,6 @@ class KG_VideoList implements Iterator
 	
 	public function jump($position)
 	{
-		
 		$this->position = $position;	
 	}
 	
@@ -281,10 +280,10 @@ class KG_Video
 	public $tags;
 	public $duration;
 	public $embedCode;
+	public $directLink;
 	
 	/*
-	 * @todo
-	 * channel Object
+	 * @todo: channel Object
 	 */
 	private $channel;
 	
@@ -301,10 +300,6 @@ class KG_Video
 		$xml_data = $this->adapter->sendRequest("getVideoDetails",array('videoId'=>$videoId));
 		$xml = $xml_data->video;
 		
-		/*
-		echo "<h2>Video XML</h2>";
-		var_dump($xml);
-		*/
 		
 		$this->id = (string)$xml->id;
 		$this->title = (string)$xml->title;
@@ -320,6 +315,7 @@ class KG_Video
 		$this->tags = (string)$xml->tags;
 		$this->duration = (string)$xml->duration;
 		$this->embedCode =(string)$xml->embed_code;
+		$this->directLink = (string)$xml->embed_code;
 	}
 	
 	public function __get($name)
@@ -347,6 +343,9 @@ class KG_Video
 		return $this->embedCode;
 	}
 	
+	/*
+	 * @todo: improve this method
+	 */
 	public function update($params)
 	{
 		$params['videoId'] = $this->id;
@@ -376,12 +375,7 @@ class KeygroundAdapter
 		if(is_array($params)){
 			$post_data=array_merge($post_data, $params);
 		}
-		
-		/*
-		echo "<h2>Request Data</h2>";
-		var_dump($post_data);
-		*/
-		
+
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, API_URL);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -394,7 +388,6 @@ class KeygroundAdapter
 		if($error){
 			throw new KeygroundException('Keyground API Connection Error. '.$error);
 		} else {
-			//echo $response;
 			$resObj = $this->xmlToObject($response);
 			if($resObj->error){
 				throw new KeygroundException($resObj->error.'<br/>');
