@@ -1,7 +1,7 @@
 <?php
 /*
  * Api Version: 0.3.3
- * SDK Version: 0.4.1
+ * SDK Version: 0.4.2
  * 
  */
 
