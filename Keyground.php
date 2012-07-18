@@ -1,25 +1,25 @@
 <?php
 
 /*
- * SDK Version: 0.5.4
+ * Beta SDK of Keyground v2.
+ * 
+ * SDK Version: 0.5.5
  * Api Version: 0.5.0
  * 
- * First SDK relase for Keyground v2
- * Support: support@keyground.com
  */
 
 require_once("KeygroundConfig.php");
 
 class Keyground
 {
-	private $channelList;
-	private $videoList;
-	private $channel;
-	private $video;
-	private $defaultChannel;
+	public $apiKey;
 	
-	private $apiKey;
-	private $adapter;
+	protected $channelListObject;
+	protected $videoList;
+	protected $channel;
+	protected $video;
+	protected $defaultChannel;
+	protected $adapter;
 	
 	public function __construct($apiKey=NULL)
 	{
@@ -33,16 +33,15 @@ class Keyground
 	{
 		switch ($name){
 			case 'channelList':
-				if(!is_object($this->channelList)) {
-					$this->channelList = new KG_ChannelList($this->adapter);
+				if(!is_object($this->channelListObject)) {
+					$this->channelListObject = new KG_ChannelList($this->adapter);
 				} 
-				return $this->channelList;
+				return $this->channelListObject;
 				break;
 			case 'defaultChannel':
-				if(!is_object($this->channelList)) {
-					$this->channelList = new KG_ChannelList($this->adapter);
+				if(!is_object($this->channelListObject)) {
+					$this->channelListObject = new KG_ChannelList($this->adapter);
 				} 
-				
 				return $this->getChannel('name','Default');
 				
 		}
@@ -289,25 +288,23 @@ class KG_Video
 	public $embedCode;
 	public $directLink;
 	public $xml;
-	
-	/*
-	 * @todo: channel Object
-	 */
-	private $channel;
+	protected $channel;
 	
 	public function __construct($adapter,$videoId=null,$xmlObj=null)
 	{
-		
-		if(isset($xmlObj))
-			$videoId = (string)$xmlObj->id;
-		else if(is_null($videoId))
-			throw new KeygroundExeption('videoId or xmlObj must be provided for getting video object');
-		
 		$this->adapter = $adapter;
 		
-		$this->xml = $xmlObj;
-		
-		
+		if(isset($xmlObj)) {
+			$this->xml = $xmlObj;
+		} else { 
+			if(is_null($videoId)) {
+				throw new KeygroundExeption('videoId or xmlObj must be provided for getting video object');
+			} else { 
+				$xml = $this->adapter->sendRequest("video/".$videoId);
+				$this->xml = $xml->video;
+			}
+		}
+
 		$this->id = (string)$this->xml->id;
 		$this->title = (string)$this->xml->title;
 		$this->channelId = (string)$this->xml->channel_id;
@@ -348,6 +345,16 @@ class KG_Video
 		return $this->embedCode;
 	}
 	
+	public function getThumb($thumbString=null)
+	{
+		if($thumbString)
+			$thumb = $this->xml->thumbs->$thumbString;
+		else 
+			$thumb = (string)$this->xml->thumbs->i200x115;
+		
+		return $thumb; 
+	}
+	
 	public function update($params)
 	{
 		$params['videoId'] = $this->id;
@@ -370,7 +377,7 @@ class KeygroundAdapter
 	{
 		$url=API_URL.$cmd."?api_key=".$this->apiKey;
 
-		//var_dump($params);
+		
 		
 		if($params){
 			foreach($params as $key => $param){
@@ -378,8 +385,6 @@ class KeygroundAdapter
 			}
 		}
 
-		echo $url;
-		
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -389,6 +394,9 @@ class KeygroundAdapter
 		$errno          = curl_errno($ch);
 		$error          = curl_error($ch);
 		
+		
+		//echo $url;
+		//var_dump($params);
 		//print($response);
 		
 		if($error){
