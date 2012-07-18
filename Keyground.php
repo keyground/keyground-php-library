@@ -1,8 +1,11 @@
 <?php
+
 /*
- * Api Version: 0.3.3
- * SDK Version: 0.4.2
+ * SDK Version: 0.5.4
+ * Api Version: 0.5.0
  * 
+ * First SDK relase for Keyground v2
+ * Support: support@keyground.com
  */
 
 require_once("KeygroundConfig.php");
@@ -18,14 +21,12 @@ class Keyground
 	private $apiKey;
 	private $adapter;
 	
-	
 	public function __construct($apiKey=NULL)
 	{
 		if($apiKey) $this->apiKey = $apiKey;
 		else $this->apiKey = API_KEY;
 		
 		$this->adapter = new KeygroundAdapter($this->apiKey);
-		$this->channelList = new KG_ChannelList($this->adapter);
 	}
 	
 	public function __get($name)
@@ -36,19 +37,30 @@ class Keyground
 					$this->channelList = new KG_ChannelList($this->adapter);
 				} 
 				return $this->channelList;
-			
-				break;	
-			case 'videoList':
-				if(!is_object($this->videoList)) {
-					$this->videoList = new KG_VideoList($this->adapter);
-					$this->videoList->find();
-				}
-				return $this->videoList;
+				break;
+			case 'defaultChannel':
+				if(!is_object($this->channelList)) {
+					$this->channelList = new KG_ChannelList($this->adapter);
+				} 
 				
-				break;
-			default:
-				break;
+				return $this->getChannel('name','Default');
+				
 		}
+	}
+	
+	public function getChannel($field,$value)
+	{
+		$xml = $this->channelList->channels->xpath('//object/'.$field.'[.="'.$value.'"]/parent::*');
+		$xml = $xml[0];
+		return new KG_Channel($xml,$this->adapter);
+	}
+	
+	public function getVideoList($filterArray)
+	{
+		$this->videoList = new KG_VideoList($this->adapter);
+		$this->videoList->filter($filterArray);
+		
+		return $this->videoList;
 	}
 	
 	public function getVideo($videoId)
@@ -56,7 +68,20 @@ class Keyground
 		return new KG_Video($this->adapter,$videoId);
 	}
 	
-	
+	/*
+	 * Shortcut function of getVideoList
+	 */
+	public function search($query)
+	{
+		
+		$filterArray = array(
+			'q' => $query
+		);
+		$this->videoList = new KG_VideoList($this->adapter);
+		$this->videoList->filter($filterArray);
+		
+		return $this->videoList;
+	}
 }
 
 class KG_ChannelList implements Iterator
@@ -70,15 +95,8 @@ class KG_ChannelList implements Iterator
 	{
 		$this->position = 0;
 		$this->adapter = $adapter;
-		$channels = $this->adapter->sendRequest("getChannels");
-		$this->channels = $channels->channels->channel;
-	}
-	
-	public function get($field,$value)
-	{
-		$xml = $this->channels->xpath('//channel/'.$field.'[.="'.$value.'"]/parent::*');
-		$xml = $xml[0];
-		return new KG_Channel($xml,$this->adapter);
+		$channels = $this->adapter->sendRequest("channels");
+		$this->channels = $channels->channels->object;
 	}
 	
 	public function jump($position)
@@ -120,13 +138,7 @@ class KG_VideoList implements Iterator
 	//private $params;
 	
 	
-	public $params;
-	
-	public $page;
-	public $per_page;
-	public $order;
-	public $desc;
-	public $lastModified;
+	public $filterArray;
 	public $objectCount;
 	
 	public function __construct($adapter)
@@ -135,41 +147,44 @@ class KG_VideoList implements Iterator
 		$this->adapter = $adapter;
 	}
 	
-	public function find($queryType=NULL,$params=NULL)
-	{
+	/*
+	 * 
+	 * filterArray elements
+	 * 
+	 * channel_id
+	 * tag - (comma separadet olarak birden fazla kabul etmeliyiz) 
+	 * last_modified - date format: yyyy.mm.dd - Formatı yyyy-mm-dd şeklinde PHP'nin standart formatı yapalım.
+	 * page
+	 * per_page
+	 * order_by
+	 * desc
+	 * 
+	 * recent_videos - api'de eksik
+	 * 
+	 */
+	public function filter($filterArray=NULL)
+	{	
+		if(!$filterArray) $filterArray = $this->filterArray;
+		if(!array_key_exists('page', $filterArray)) $filterArray['page']=PAGE;
+		if(!array_key_exists('per_page', $filterArray)) $filterArray['per_page']=PER_PAGE;
+		if(!array_key_exists('order_by', $filterArray)) $filterArray['order_by']=ORDER_BY;
+		if(!array_key_exists('desc', $filterArray)) $filterArray['desc']=DESC;
 		
-		if(is_array($params)) $this->params = $params;
-		if(!is_null($queryType)) $this->params['queryType'] = $queryType;
-		$this->getVideos();
-	}
-	
-	public function getVideos()
-	{
 		
-		switch($this->params['queryType']){
-			case 'by_channel_id':
-				$xml = $this->adapter->sendRequest("getVideos",$this->params);
-				break;
-			case 'popular':
-				$xml = $this->adapter->sendRequest("getMostPopularVideos",$this->params);
-				break;
-			case 'by_tags':
-				$xml = $this->adapter->sendRequest("getVideos",$this->params);
-				break;	
-			case 'all':
-				$this->params['all'] = 'true';
-				$xml = $this->adapter->sendRequest("getVideos",$this->params);
-				break;
-			default:
-				$xml = $this->adapter->sendRequest("getVideos");		
+		if(array_key_exists('q', $filterArray)){
+			$xml = $this->adapter->sendRequest("videos/search/".$filterArray['q'],$filterArray);	
+		} else {
+			$xml = $this->adapter->sendRequest("videos",$filterArray);	
 		}
 		
-	
-		$this->objectCount = count($xml->videos->video); 
-		$this->videos = $xml->videos->video;
 		
+		$this->objectCount = count($xml->videos->object); 
+		$this->videos = $xml->videos->object;
+		
+		//var_dump($this->videos);
 	}
 	
+	/*
 	public function __get($name)
 	{
 		switch ($name){
@@ -183,6 +198,7 @@ class KG_VideoList implements Iterator
 				break;
 		}
 	}
+	*/
 	
 	public function jump($position)
 	{
@@ -226,7 +242,6 @@ class KG_Channel
 	
 	public $id;
 	public $name;
-	public $s_description;
 	public $description;
 	public $isOnline;
 	public $videoCount;
@@ -240,14 +255,11 @@ class KG_Channel
 	
 	
 	public function __construct($xml,$adapter)
-	{
+	{		
 		$this->adapter = $adapter;
 		$this->id = (string)$xml->id;
 		$this->name = (string)$xml->name;
-		$this->s_description = (string)$xml->s_description;
-		$this->description = (string)$xml->s_description;
-		$this->isOnline = (string)$xml->online;
-		$this->videoCount = (string)$xml->video_count;
+		$this->description = (string)$xml->description;		
 	}
 	
 	public function videoList($filter)
@@ -269,18 +281,14 @@ class KG_Video
 	public $id;
 	public $title;
 	public $channelId;
-	public $s_description;
 	public $description;
 	public $upload_time;
-	public $thumb;
-	public $thumb_s;
-	public $thumb_m;
-	public $thumb_l;
 	public $lastModified;
 	public $tags;
 	public $duration;
 	public $embedCode;
 	public $directLink;
+	public $xml;
 	
 	/*
 	 * @todo: channel Object
@@ -290,44 +298,41 @@ class KG_Video
 	public function __construct($adapter,$videoId=null,$xmlObj=null)
 	{
 		
-		
 		if(isset($xmlObj))
 			$videoId = (string)$xmlObj->id;
 		else if(is_null($videoId))
 			throw new KeygroundExeption('videoId or xmlObj must be provided for getting video object');
 		
 		$this->adapter = $adapter;
-		$xml_data = $this->adapter->sendRequest("getVideoDetails",array('videoId'=>$videoId));
-		$xml = $xml_data->video;
+		
+		$this->xml = $xmlObj;
 		
 		
-		$this->id = (string)$xml->id;
-		$this->title = (string)$xml->title;
-		$this->channelId = (string)$xml->channelId;
-		$this->s_description = (string)$xml->s_description;
-		$this->description = (string)$xml->description;
-		$this->uploadTime = (string)$xml->upload_time;
-		$this->thumb = (string)$xml->thumb;
-		$this->thumb_s = (string)$xml->thumb_s;;
-		$this->thumb_m = (string)$xml->thumb_m;
-		$this->thumb_l = (string)$xml->thumb_l;
-		$this->lastModified = (string)$xml->lastModified;
-		$this->tags = (string)$xml->tags;
-		$this->duration = (string)$xml->duration;
-		$this->embedCode =(string)$xml->embed_code;
-		$this->directLink = (string)$xml->embed_code;
+		$this->id = (string)$this->xml->id;
+		$this->title = (string)$this->xml->title;
+		$this->channelId = (string)$this->xml->channel_id;
+		$this->description = (string)$this->xml->description;
+		$this->uploadedOn = date('Y-m-d H:i:s',strtotime((string)$this->xml->uploaded_on));
+		$this->image = (string)$this->xml->image;
+		$this->lastModified = date('Y-m-d H:i:s',strtotime((string)$this->xml->last_modified));
+		$this->tags = $this->tagList($this->xml->tags);
+		$this->duration = (string)$this->xml->duration;
+		$this->embedCode = (string)$this->xml->embed_code;
+		$this->directLink = (string)$this->xml->direct_link;
 	}
 	
-	public function __get($name)
+	
+	public function tagList($tagsXML)
 	{
-		switch ($name){
-			case 'comments':
-				$comments = new KG_CommentList($this->id);
-				return $comments;
-				break;
-			default:
-				break;
+		$list =array(); 
+		if(count($tagsXML->tag)){
+			$i=0;
+			foreach ($tag as $tagXML->tag){
+				$list[$i] = $tag;
+				$i++;	
+			}
 		}
+		return $list;
 	}
 	
 	public function getEmbedCode($width,$height,$autoStart)
@@ -343,9 +348,6 @@ class KG_Video
 		return $this->embedCode;
 	}
 	
-	/*
-	 * @todo: improve this method
-	 */
 	public function update($params)
 	{
 		$params['videoId'] = $this->id;
@@ -366,24 +368,28 @@ class KeygroundAdapter
 	
 	function sendRequest($cmd,$params = null)
 	{
-			
-		$post_data = array (
-			'api_key'	=> $this->apiKey,
-			'cmd'		=> $cmd
-		);
+		$url=API_URL.$cmd."?api_key=".$this->apiKey;
+
+		//var_dump($params);
 		
-		if(is_array($params)){
-			$post_data=array_merge($post_data, $params);
+		if($params){
+			foreach($params as $key => $param){
+				$url=$url."&".$key.'='.$param;
+			}
 		}
 
+		echo $url;
+		
 		$ch = curl_init();
-		curl_setopt($ch, CURLOPT_URL, API_URL);
+		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($ch, CURLOPT_POST, 1);
-		curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+		//curl_setopt($ch, CURLOPT_POST, 1);
+		//curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
 		$response       = curl_exec($ch);	
 		$errno          = curl_errno($ch);
 		$error          = curl_error($ch);
+		
+		//print($response);
 		
 		if($error){
 			throw new KeygroundException('Keyground API Connection Error. '.$error);
@@ -393,10 +399,11 @@ class KeygroundAdapter
 				throw new KeygroundException($resObj->error.'<br/>');
 			}
 			return $this->xmlToObject($response);	
-		}	
+		}
 	}
 	
-	private function xmlToObject($xml){
+	private function xmlToObject($xml)
+	{
 		try {
 			$obj=simplexml_load_string($xml,'SimpleXMLElement', LIBXML_NOCDATA);	
 		} catch (Exception $e) {
@@ -408,3 +415,4 @@ class KeygroundAdapter
 }
 
 class KeygroundException extends Exception{}
+?>

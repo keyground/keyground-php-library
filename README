@@ -1,6 +1,7 @@
 == Info ==
-Version: 0.4.2
+Version: 0.5.4
 Documentation URI: http://www.keyground.com/docs
+Support: support@keyground.com
 Author: Keyground
 Author URI: http://www.keyground.com
 License: GPL2
@@ -9,6 +10,9 @@ License: GPL2
 Keyground SDK is a full featured sdk for Keyground Video Platform Api
 
 == Changelog ==
+
+= 0.5.0 =
+SDK for Keyground v2
 
 = 0.4.2 =
 * by_channel_id bug fixed
