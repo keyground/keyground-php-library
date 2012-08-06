@@ -3,7 +3,7 @@
 /*
  * Beta SDK of Keyground v2.
  * 
- * SDK Version: 0.5.5
+ * SDK Version: 0.5.7
  * Api Version: 0.5.0
  * 
  */
@@ -117,7 +117,6 @@ class KG_ChannelList implements Iterator
     }
     
     public function next() {
-    	//unset($this->video);
         ++$this->position;
     }
     
@@ -133,9 +132,6 @@ class KG_VideoList implements Iterator
 	private $videos;
 	private $video;
 	private $adapter;
-
-	//private $params;
-	
 	
 	public $filterArray;
 	public $objectCount;
@@ -157,8 +153,6 @@ class KG_VideoList implements Iterator
 	 * per_page
 	 * order_by
 	 * desc
-	 * 
-	 * recent_videos - api'de eksik
 	 * 
 	 */
 	public function filter($filterArray=NULL)
@@ -182,22 +176,6 @@ class KG_VideoList implements Iterator
 		
 		//var_dump($this->videos);
 	}
-	
-	/*
-	public function __get($name)
-	{
-		switch ($name){
-			case 'video':
-				if(is_object($this->video))
-					return $this->video;
-				else 
-					return $this->current();
-				break;
-			default:
-				break;
-		}
-	}
-	*/
 	
 	public function jump($position)
 	{
@@ -246,30 +224,13 @@ class KG_Channel
 	public $videoCount;
 	
 	
-	/*
-	 * @todo
-	 * $channel->rssLink;
-	 */
-	private $rssLink;
-	
-	
 	public function __construct($xml,$adapter)
 	{		
 		$this->adapter = $adapter;
 		$this->id = (string)$xml->id;
 		$this->name = (string)$xml->name;
 		$this->description = (string)$xml->description;		
-	}
-	
-	public function videoList($filter)
-	{
-		$filter['channelId'] = $this->id;
-		$videoList = new KG_VideoList();
-		$videoList->find('by_channel_id',$filter);
-		
-		return $videoList;
-	}
-	
+	}	
 }
 
 
@@ -281,7 +242,7 @@ class KG_Video
 	public $title;
 	public $channelId;
 	public $description;
-	public $upload_time;
+	public $uploadedOn;
 	public $lastModified;
 	public $tags;
 	public $duration;
@@ -340,7 +301,7 @@ class KG_Video
 			'height' => $height,
 			'auto_start' => $autoStart,
 		);
-		$xml = $this->adapter->sendRequest("getEmbedCode",$params);
+		$xml = $this->adapter->sendRequest("video/embed_code",$params);
 		$this->embedCode = (string)$xml->embed_code;
 		return $this->embedCode;
 	}
@@ -395,9 +356,9 @@ class KeygroundAdapter
 		$error          = curl_error($ch);
 		
 		
-		//echo $url;
+		echo $url;
 		//var_dump($params);
-		//print($response);
+		echo $response;
 		
 		if($error){
 			throw new KeygroundException('Keyground API Connection Error. '.$error);
