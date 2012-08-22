@@ -1,5 +1,5 @@
 == Info ==
-Version: 1.0.0
+Version: 0.6.1
 Documentation URI: http://www.keyground.com/docs
 Support: support@keyground.com
 Author: Keyground
@@ -11,7 +11,7 @@ Keyground SDK is a full featured sdk for Keyground Video Platform Api
 
 == Changelog ==
 
-= 1.0.0 =
+= 0.6.1 =
 R.C. for Keyground v2 API
 
 = 0.5.0 =
