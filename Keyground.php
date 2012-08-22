@@ -3,8 +3,8 @@
 /*
  * Beta SDK of Keyground v2.
  * 
- * SDK Version: 0.5.7
- * Api Version: 0.5.0
+ * SDK Version: 0.6.1
+ * Api Version: 1.0.0
  * 
  */
 
@@ -27,6 +27,7 @@ class Keyground
 		else $this->apiKey = API_KEY;
 		
 		$this->adapter = new KeygroundAdapter($this->apiKey);
+		$this->videoList = new KG_VideoList($this->adapter);
 	}
 	
 	public function __get($name)
@@ -56,7 +57,6 @@ class Keyground
 	
 	public function getVideoList($filterArray)
 	{
-		$this->videoList = new KG_VideoList($this->adapter);
 		$this->videoList->filter($filterArray);
 		
 		return $this->videoList;
@@ -76,10 +76,26 @@ class Keyground
 		$filterArray = array(
 			'q' => $query
 		);
-		$this->videoList = new KG_VideoList($this->adapter);
-		$this->videoList->filter($filterArray);
+
+		$this->getVideoList($filterArray);
 		
 		return $this->videoList;
+	}
+	
+	public function recentVideos()
+	{
+		$filterArray = array(
+			'desc' => 'true'
+		);
+
+		$this->getVideoList($filterArray);
+		
+		return $this->videoList;
+	}
+	
+	public function relatedVideos()
+	{
+		
 	}
 }
 
@@ -132,8 +148,6 @@ class KG_VideoList implements Iterator
 	private $videos;
 	private $video;
 	private $adapter;
-	
-	public $filterArray;
 	public $objectCount;
 	
 	public function __construct($adapter)
@@ -142,20 +156,7 @@ class KG_VideoList implements Iterator
 		$this->adapter = $adapter;
 	}
 	
-	/*
-	 * 
-	 * filterArray elements
-	 * 
-	 * channel_id
-	 * tag - (comma separadet olarak birden fazla kabul etmeliyiz) 
-	 * last_modified - date format: yyyy.mm.dd - Formatı yyyy-mm-dd şeklinde PHP'nin standart formatı yapalım.
-	 * page
-	 * per_page
-	 * order_by
-	 * desc
-	 * 
-	 */
-	public function filter($filterArray=NULL)
+	public function filter(KG_Filter $filter)
 	{	
 		if(!$filterArray) $filterArray = $this->filterArray;
 		if(!array_key_exists('page', $filterArray)) $filterArray['page']=PAGE;
@@ -173,8 +174,6 @@ class KG_VideoList implements Iterator
 		
 		$this->objectCount = count($xml->videos->object); 
 		$this->videos = $xml->videos->object;
-		
-		//var_dump($this->videos);
 	}
 	
 	public function jump($position)
@@ -261,8 +260,10 @@ class KG_Video
 			if(is_null($videoId)) {
 				throw new KeygroundExeption('videoId or xmlObj must be provided for getting video object');
 			} else { 
-				$xml = $this->adapter->sendRequest("video/".$videoId);
+				echo "Video id".$videoId;
+				$xml = $this->adapter->sendRequest("video/".$videoId.'/');
 				$this->xml = $xml->video;
+				//var_dump($xml);
 			}
 		}
 
@@ -282,18 +283,19 @@ class KG_Video
 	
 	public function tagList($tagsXML)
 	{
-		$list =array(); 
-		if(count($tagsXML->tag)){
-			$i=0;
-			foreach ($tag as $tagXML->tag){
-				$list[$i] = $tag;
-				$i++;	
-			}
+		$list =array();
+		$tagCount = count($tagsXML->tag); 
+		
+		$i=0;
+		foreach ($tagsXML->tag as $tag){
+			$list += $tag;
+			if($i!=$tagCount) $list+=",";
+			$i++;
 		}
 		return $list;
 	}
 	
-	public function getEmbedCode($width,$height,$autoStart)
+	public function getEmbedCode($width,$height,$autoStart=false)
 	{
 		$params = array (
 			'videoId' => $this->id,
@@ -316,11 +318,18 @@ class KG_Video
 		return $thumb; 
 	}
 	
-	public function update($params)
+	public function save()
 	{
-		$params['videoId'] = $this->id;
-		$xml = $this->adapter->sendRequest("update",$params);
+		$params['video_id'] = $this->id;
+		$postParams = array(
+			'title' => $this->title,
+			'description' => $this->description,
+			'tags'		=> $this->tags,
+			'direct_link' => $this->directLink
+		);
+		$xml = $this->adapter->sendRequest("video/".$this->id.'/',$params,$postParams);
 	}
+	
 }
 
 
@@ -334,12 +343,10 @@ class KeygroundAdapter
 		else $this->apiKey = API_KEY;
 	}
 	
-	function sendRequest($cmd,$params = null)
+	function sendRequest($cmd,$params = null,$postParams=null)
 	{
 		$url=API_URL.$cmd."?api_key=".$this->apiKey;
 
-		
-		
 		if($params){
 			foreach($params as $key => $param){
 				$url=$url."&".$key.'='.$param;
@@ -349,23 +356,35 @@ class KeygroundAdapter
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		//curl_setopt($ch, CURLOPT_POST, 1);
-		//curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+		
+		var_dump($postParams);
+		if(is_array($postParams)){
+			curl_setopt($ch, CURLOPT_POST, 1);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $postParams);
+		}
+		
 		$response       = curl_exec($ch);	
 		$errno          = curl_errno($ch);
 		$error          = curl_error($ch);
 		
 		
-		echo $url;
-		//var_dump($params);
-		echo $response;
+		//echo $url;
+		//echo $response;
 		
 		if($error){
-			throw new KeygroundException('Keyground API Connection Error. '.$error);
+			throw new KeygroundException('Keyground API CURL Connection Error. '.$error.' '.$errno);
 		} else {
 			$resObj = $this->xmlToObject($response);
-			if($resObj->error){
-				throw new KeygroundException($resObj->error.'<br/>');
+			
+			if($resObj->errors){
+				var_dump($resObj->errors);		
+				
+				$message='';
+				foreach ($resObj->errors->children() as $errorLine){
+					$message.=$errorLine->getName().': '.$errorLine->value.'<br/>';
+				}
+				
+				throw new KeygroundException($message);
 			}
 			return $this->xmlToObject($response);	
 		}
