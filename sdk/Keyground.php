@@ -361,8 +361,8 @@ class KeygroundAdapter
 		$error          = curl_error($ch);
 		
 		
-		echo $url;
-		echo $response;
+		//echo $url;
+		//echo $response;
 		
 		if($error){
 			throw new KeygroundException('Keyground API CURL Connection Error. '.$error.' '.$errno);
