@@ -3,7 +3,7 @@
 /*
  * Beta SDK of Keyground v2.
  * 
- * SDK Version: 0.6.1
+ * SDK Version: 0.6.2
  * Api Version: 1.0.0
  * 
  */
@@ -92,11 +92,6 @@ class Keyground
 		
 		return $this->videoList;
 	}
-	
-	public function relatedVideos()
-	{
-		
-	}
 }
 
 class KG_ChannelList implements Iterator
@@ -156,7 +151,7 @@ class KG_VideoList implements Iterator
 		$this->adapter = $adapter;
 	}
 	
-	public function filter(KG_Filter $filter)
+	public function filter($filterArray)
 	{	
 		if(!$filterArray) $filterArray = $this->filterArray;
 		if(!array_key_exists('page', $filterArray)) $filterArray['page']=PAGE;
@@ -260,10 +255,8 @@ class KG_Video
 			if(is_null($videoId)) {
 				throw new KeygroundExeption('videoId or xmlObj must be provided for getting video object');
 			} else { 
-				echo "Video id".$videoId;
 				$xml = $this->adapter->sendRequest("video/".$videoId.'/');
 				$this->xml = $xml->video;
-				//var_dump($xml);
 			}
 		}
 
@@ -357,7 +350,7 @@ class KeygroundAdapter
 		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 		
-		var_dump($postParams);
+		//var_dump($postParams);
 		if(is_array($postParams)){
 			curl_setopt($ch, CURLOPT_POST, 1);
 			curl_setopt($ch, CURLOPT_POSTFIELDS, $postParams);
@@ -368,8 +361,8 @@ class KeygroundAdapter
 		$error          = curl_error($ch);
 		
 		
-		//echo $url;
-		//echo $response;
+		echo $url;
+		echo $response;
 		
 		if($error){
 			throw new KeygroundException('Keyground API CURL Connection Error. '.$error.' '.$errno);
@@ -377,7 +370,7 @@ class KeygroundAdapter
 			$resObj = $this->xmlToObject($response);
 			
 			if($resObj->errors){
-				var_dump($resObj->errors);		
+				//var_dump($resObj->errors);		
 				
 				$message='';
 				foreach ($resObj->errors->children() as $errorLine){
@@ -386,6 +379,7 @@ class KeygroundAdapter
 				
 				throw new KeygroundException($message);
 			}
+
 			return $this->xmlToObject($response);	
 		}
 	}
@@ -400,6 +394,7 @@ class KeygroundAdapter
 		
 		return $obj;
 	}
+
 }
 
 class KeygroundException extends Exception{}

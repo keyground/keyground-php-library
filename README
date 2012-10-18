@@ -1,5 +1,5 @@
 == Info ==
-Version: 0.6.1
+Version: 0.6.2
 Documentation URI: http://www.keyground.com/docs
 Support: support@keyground.com
 Author: Keyground
@@ -10,6 +10,9 @@ License: GPL2
 Keyground SDK is a full featured sdk for Keyground Video Platform Api
 
 == Changelog ==
+
+= 0.6.2 =
+Small Bug Fixes
 
 = 0.6.1 =
 R.C. for Keyground v2 API
